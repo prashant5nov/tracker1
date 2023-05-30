@@ -1,5 +1,6 @@
 import uuid
-from fastapi import APIRouter, Body, Depends, HTTPException, status
+import typing
+from fastapi import APIRouter, Body, Query, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
@@ -14,7 +15,6 @@ from api.settings import Settings, settings_instance
 
 
 http_basic = HTTPBasic()
-router = APIRouter(prefix="/api/v1/films", tags=["films"])
 
 
 def basic_authentication(
@@ -43,6 +43,12 @@ def basic_authentication(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="invalid username or password (bad credentials)"
     )
+
+
+router = APIRouter(
+    prefix="/api/v1/films",
+    tags=["films"],
+    dependencies=[Depends(basic_authentication)])
 
 
 @lru_cache
@@ -91,7 +97,6 @@ async def post_create_film(
 @router.get(
     "/{film_id}",
     responses={200: {"model": FilmResponse}, 404: {"model": DetailResponse}},
-    dependencies=[Depends(basic_authentication)]
 )
 async def get_film_by_id(
         film_id: str,
@@ -123,3 +128,44 @@ async def get_film_by_id(
         release_year=film.release_year,
         watched=film.watched,
     )
+
+
+@router.get(
+    "/", response_model=typing.List[FilmResponse]
+)
+async def get_film_by_title(
+        title: str = Query(
+            title="Title",
+            description="The title of the film",
+            min_length=3
+        ),
+        repo: FilmRepository = Depends(film_repository)
+):
+    """
+
+    This view/ handler returns films by filtering their titles
+
+    Args:
+        title:
+        repo:
+
+    Returns:
+
+    """
+
+    films = await repo.get_by_title(title)
+    film_return_value = []
+
+    for film in films:
+        film_return_value.append(
+            FilmResponse(
+                id=film.id,
+                title=film.title,
+                description=film.description,
+                release_year=film.release_year,
+                watched=film.watched,
+            )
+        )
+    return film_return_value
+
+
