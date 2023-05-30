@@ -1,7 +1,11 @@
 import uuid
-from fastapi import APIRouter, Body, Depends
+from fastapi import APIRouter, Body, Depends, HTTPException, status
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
+
 from api.responses.detail import DetailResponse
-from api.dto.film import FilmCreatedResponse, CreateFilmBody
+from api.dto.film import FilmCreatedResponse, CreateFilmBody, FilmResponse
 from api.repository.film.mongo import MongoFilmRepository
 from api.repository.film.abstractions import FilmRepository
 from api.entities.film import Film
@@ -9,7 +13,36 @@ from functools import lru_cache
 from api.settings import Settings, settings_instance
 
 
+http_basic = HTTPBasic()
 router = APIRouter(prefix="/api/v1/films", tags=["films"])
+
+
+def basic_authentication(
+        credentials: HTTPBasicCredentials = Depends(http_basic)
+):
+    """
+    
+    # TODO refer
+    https://fastapi.tiangolo.com/lo/advanced/security/http-basic-auth/#http-basic-auth
+    
+    Args:
+        credentials: 
+
+    Returns:
+
+    """
+
+    if (
+            credentials.username == "prashant"
+            and
+            credentials.password == "password@321"
+    ):
+        return
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="invalid username or password (bad credentials)"
+    )
 
 
 @lru_cache
@@ -53,3 +86,40 @@ async def post_create_film(
         )
     )
     return FilmCreatedResponse(id=film_id)
+
+
+@router.get(
+    "/{film_id}",
+    responses={200: {"model": FilmResponse}, 404: {"model": DetailResponse}},
+    dependencies=[Depends(basic_authentication)]
+)
+async def get_film_by_id(
+        film_id: str,
+        repo: FilmRepository = Depends(film_repository)
+):
+    """
+    Returns a film if found, None otherwise.
+
+    Args:
+        film_id:
+        repo:
+
+    Returns:
+
+    """
+
+    film = await repo.get_by_id(film_id=film_id)
+    if film is None:
+        return JSONResponse(
+            status_code=404,
+            content=jsonable_encoder(
+                DetailResponse(message=f"film with id - `{film_id}` not found.")
+            ),
+        )
+    return FilmResponse(
+        id=film.id,
+        title=film.title,
+        description=film.description,
+        release_year=film.release_year,
+        watched=film.watched,
+    )
