@@ -1,7 +1,7 @@
 import uuid
 import typing
 from fastapi import APIRouter, Body, Query, Path, Depends, HTTPException, status
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
@@ -215,4 +215,15 @@ async def patch_update_film(
         )
 
 
+@router.delete(
+    "/{film_id}",
+    status_code=204
+)
+async def delete_film(
+        film_id: str = Path(..., title="Film ID",
+                            desription="The ID of the film"),
+        repo: FilmRepository = Depends(film_repository)
+):
 
+    await repo.delete(film_id=film_id)
+    return Response(status_code=204)
