@@ -1,13 +1,18 @@
 import uuid
 import typing
-from fastapi import APIRouter, Body, Query, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Query, Path, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 
 from api.responses.detail import DetailResponse
-from api.dto.film import FilmCreatedResponse, CreateFilmBody, FilmResponse
-from api.repository.film.mongo import MongoFilmRepository
+from api.dto.film import (
+    FilmCreatedResponse,
+    CreateFilmBody,
+    FilmResponse,
+    FilmUpdateBody
+)
+from api.repository.film.mongo import MongoFilmRepository, RepositoryException
 from api.repository.film.abstractions import FilmRepository
 from api.entities.film import Film
 from functools import lru_cache
@@ -167,5 +172,47 @@ async def get_film_by_title(
             )
         )
     return film_return_value
+
+
+@router.patch(
+    "/{film_id}",
+    responses={
+        200: {"model": DetailResponse},
+        400: {"model": DetailResponse},
+    }
+)
+async def patch_update_film(
+        film_id: str = Path(title="Film ID", description="The id of the film"),
+        update_parameters: FilmUpdateBody = Body(
+            ...,
+            title="Update Body",
+            description="The parameters of the film to be updated"
+        ),
+        repo: FilmRepository = Depends(film_repository)
+):
+    """
+    Updates a film record against certain film_id.
+
+    Args:
+        film_id:
+        update_parameters:
+        repo:
+
+    Returns:
+
+    """
+
+    try:
+        await repo.update(
+            film_id=film_id,
+            update_parameters=update_parameters.dict()
+        )
+        return DetailResponse(message="Film has been updated.")
+    except RepositoryException as e:
+        return JSONResponse(
+            status_code=400,
+            content=jsonable_encoder(DetailResponse(message=str(e)))
+        )
+
 
 
